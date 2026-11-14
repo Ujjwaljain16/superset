@@ -162,3 +162,73 @@ def test_delete_tag_by_pk_delete_failed_surfaces_as_422(
     response = client.delete("/api/v1/tag/1")
 
     assert response.status_code == 422
+
+
+def test_create_tag_rejects_name_longer_than_the_column(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """
+    ``tag.name`` is ``VARCHAR(250)``. A longer name used to pass validation,
+    fail at the database and surface as a 500 ("Tag could not be created.");
+    it must be a 400 that names the field.
+    """
+    mock_command = mocker.patch(
+        "superset.tags.api.CreateCustomTagWithRelationshipsCommand"
+    )
+
+    response = client.post("/api/v1/tag/", json={"name": "x" * 251})
+
+    assert response.status_code == 400
+    assert "name" in response.json["message"]
+    mock_command.assert_not_called()
+
+
+def test_create_tag_accepts_name_at_the_column_limit(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """A name of exactly 250 characters fits the column and must still be accepted."""
+    mock_command = mocker.patch(
+        "superset.tags.api.CreateCustomTagWithRelationshipsCommand"
+    )
+
+    response = client.post("/api/v1/tag/", json={"name": "x" * 250})
+
+    assert response.status_code == 201
+    mock_command.assert_called_once()
+
+
+def test_bulk_create_tags_rejects_name_longer_than_the_column(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """``bulk_create`` validates each tag with the same schema as ``POST /tag/``."""
+    mock_command = mocker.patch(
+        "superset.tags.api.CreateCustomTagWithRelationshipsCommand"
+    )
+
+    response = client.post(
+        "/api/v1/tag/bulk_create",
+        json={"tags": [{"name": "ok"}, {"name": "x" * 251}]},
+    )
+
+    assert response.status_code == 400
+    mock_command.assert_not_called()
+
+
+def test_update_tag_rejects_name_longer_than_the_column(
+    client: Any,
+    full_api_access: None,
+    mocker: MockerFixture,
+) -> None:
+    """Renaming a tag to a name longer than the column is a 400, not a 500."""
+    mock_command = mocker.patch("superset.tags.api.UpdateTagCommand")
+
+    response = client.put("/api/v1/tag/1", json={"name": "x" * 251})
+
+    assert response.status_code == 400
+    mock_command.assert_not_called()

@@ -73,7 +73,8 @@ objects_to_tag_field = fields.List(
 
 
 class TagObjectSchema(Schema):
-    name = fields.String(validate=Length(min=1))
+    # tag.name is VARCHAR(250); a longer name would fail at the database (a 500).
+    name = fields.String(validate=Length(min=1, max=250))
     description = fields.String(required=False, allow_none=True)
     objects_to_tag = objects_to_tag_field
 
