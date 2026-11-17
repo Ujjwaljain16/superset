@@ -23,4 +23,7 @@ if sys.version_info >= (3, 11):
 else:
 
     class StrEnum(str, Enum):
-        pass
+        # Match enum.StrEnum on Python 3.11+: str() is the member's value, not
+        # "ClassName.MEMBER". Drivers that convert str subclasses with str()
+        # (e.g. mysqlclient 2.3.1) would otherwise store the member's name.
+        __str__ = str.__str__
